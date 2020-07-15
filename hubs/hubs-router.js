@@ -1,9 +1,14 @@
 const express = require('express');
 
 const Hubs = require('./hubs-model.js');
-const Messages = require('../messages/messages-model.js');
+const Messages = require('../messages/messages-model.js')
 
 const router = express.Router();
+
+router.use((req,res,next) => {
+  console.log(" In The hubs router" );
+  next();
+})
 
 // this only runs if the url has /api/hubs in it
 router.get('/', (req, res) => {
@@ -22,7 +27,7 @@ router.get('/', (req, res) => {
 
 // /api/hubs/:id
 
-router.get('/:id', (req, res) => {
+router.get('/:id', validateId, (req, res) => {
   Hubs.findById(req.params.id)
   .then(hub => {
     if (hub) {
@@ -40,8 +45,13 @@ router.get('/:id', (req, res) => {
   });
 });
 
-router.post('/', (req, res) => {
-  Hubs.add(req.body)
+router.post('/', validateBody,(req, res) => {
+  const post = req.body
+  let date = Date()
+  post.created_at = date;
+  post.updated_at = date;
+
+  Hubs.add(post)
   .then(hub => {
     res.status(201).json(hub);
   })
@@ -54,7 +64,7 @@ router.post('/', (req, res) => {
   });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', validateId, (req, res) => {
   Hubs.remove(req.params.id)
   .then(count => {
     if (count > 0) {
@@ -72,8 +82,12 @@ router.delete('/:id', (req, res) => {
   });
 });
 
-router.put('/:id', (req, res) => {
-  Hubs.update(req.params.id, req.body)
+router.put('/:id', validateId,(req, res) => {
+  const post = req.body
+  let date = Date()
+  post.updated_at = date;
+
+  Hubs.update(req.params.id, post)
   .then(hub => {
     if (hub) {
       res.status(200).json(hub);
@@ -92,7 +106,7 @@ router.put('/:id', (req, res) => {
 
 // add an endpoint that returns all the messages for a hub
 // this is a sub-route or sub-resource
-router.get('/:id/messages', (req, res) => {
+router.get('/:id/messages', validateId,(req, res) => {
   Hubs.findHubMessages(req.params.id)
   .then(messages => {
     res.status(200).json(messages);
@@ -107,7 +121,7 @@ router.get('/:id/messages', (req, res) => {
 });
 
 // add an endpoint for adding new message to a hub
-router.post('/:id/messages', (req, res) => {
+router.post('/:id/messages', validateBody,(req, res) => {
   const messageInfo = { ...req.body, hub_id: req.params.id };
 
   Messages.add(messageInfo)
@@ -122,5 +136,30 @@ router.post('/:id/messages', (req, res) => {
     });
   });
 });
+
+function validateId(req, res, next) {
+  const { id } = req.params;
+  Hubs.findById(id)
+  .then(hub => {
+    if(hub){
+    req.hub = hub;
+    next();
+    } else{
+      next({code: 404, message: 'invalid hub id'})
+    }}
+    )
+  .catch(err =>{ 
+    console.log(err);
+    next({ code : 500, message: 'something'})
+  })
+}
+
+function validateBody(req, res, next) {
+  if (req.body && Object.keys(req.body).length > 0) {
+    next();
+  } else {
+    res.status(400).json({ message: 'please include a request body' });
+  }
+}
 
 module.exports = router;

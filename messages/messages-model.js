@@ -27,6 +27,7 @@ function findById(id) {
 }
 
 async function add(message) {
+  console.log(message)
   const [id] = await db('messages').insert(message);
 
   return findById(id);
